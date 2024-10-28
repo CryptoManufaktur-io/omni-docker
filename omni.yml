@@ -1,0 +1,150 @@
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: 20m
+      max-file: "3"
+
+services:
+  halo:
+    container_name: halo
+    build:
+      context: ./halo
+      dockerfile: ${HALO_DOCKERFILE}
+      args:
+        - DOCKER_TAG=${HALO_DOCKER_TAG:-stable}
+        - DOCKER_REPO=${HALO_DOCKER_REPO:-ethereum/client-go}
+    image: halo:local
+    pull_policy: never
+    user: halo
+    restart: unless-stopped
+    stop_grace_period: 5m
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-}
+      - CL_EXTRAS=${CL_EXTRAS:-}
+      - NETWORK=${NETWORK}
+      - MONIKER=${MONIKER}
+    ports:
+      - ${CL_P2P_PORT:-26656}:${CL_P2P_PORT:-26656}/tcp # CometBFT Consensus P2P
+      - ${CL_RPC_PORT:-26657}:${CL_RPC_PORT:-26657}/tcp # CometBFT Consensus RPC
+    volumes:
+      - halo-data:/halo
+      - jwtsecret:/geth/jwtsecret
+      - ./config/priv_validator_key.json:/halo/config/priv_validator_key.json
+      - ./config/priv_validator_state.json:/halo/data/priv_validator_state.json
+      - ./config/voter_state.json:/halo/data/voter_state.json
+    entrypoint:
+      - docker-entrypoint.sh
+      - cosmovisor
+      - run
+      - run
+    labels:
+        - traefik.enable=true
+        - traefik.http.routers.${CL_HOST}.service=${CL_HOST}
+        - traefik.http.routers.${CL_HOST}.entrypoints=websecure
+        - traefik.http.routers.${CL_HOST}.rule=Host(`${CL_HOST}.${DOMAIN}`)
+        - traefik.http.routers.${CL_HOST}.tls.certresolver=letsencrypt
+        - traefik.http.routers.${CL_HOST}lb.service=${CL_HOST}
+        - traefik.http.routers.${CL_HOST}lb.entrypoints=websecure
+        - traefik.http.routers.${CL_HOST}lb.rule=Host(`${EL_LB}.${DOMAIN}`)
+        - traefik.http.routers.${CL_HOST}lb.tls.certresolver=letsencrypt
+        - traefik.http.services.${CL_HOST}.loadbalancer.server.port=${CL_RPC_PORT}
+        - metrics.scrape=true
+        - metrics.path=/metrics
+        - metrics.port=6060
+        - metrics.instance=halo
+        - metrics.network=${NETWORK}
+
+  geth:
+    container_name: omni_evm
+    build:
+      context: ./geth
+      dockerfile: ${GETH_DOCKERFILE}
+      args:
+        - DOCKER_TAG=${GETH_DOCKER_TAG:-stable}
+        - DOCKER_REPO=${GETH_DOCKER_REPO:-ethereum/client-go}
+    image: geth:local
+    pull_policy: never
+    user: geth
+    restart: unless-stopped
+    stop_grace_period: 5m
+    environment:
+      - JWT_SECRET=${JWT_SECRET:-}
+      - LOG_LEVEL=${LOG_LEVEL:-info}
+      - EL_EXTRAS=${EL_EXTRAS:-}
+      - NETWORK=${NETWORK}
+      - ARCHIVE_NODE=${ARCHIVE_NODE:-}
+      - ANCIENT_DIR=${ANCIENT_DIR:-}
+    volumes:
+      - geth-data:/var/lib/geth
+      - jwtsecret:/var/lib/geth/ee-secret
+    entrypoint:
+      - docker-entrypoint.sh
+      - geth
+      - --http
+      - --http.addr
+      - 0.0.0.0
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --port
+      - ${EL_P2P_PORT:-30303}
+      - --http.port
+      - ${EL_RPC_PORT:-8545}
+      - --ws
+      - --ws.addr
+      - 0.0.0.0
+      - --ws.port
+      - ${EL_WS_PORT:-8546}
+      - --ws.origins=*
+      - --metrics
+      - --pprof
+      - --pprof.addr
+      - 0.0.0.0
+      - --authrpc.jwtsecret
+      - /var/lib/geth/ee-secret/jwtsecret
+      - --authrpc.addr
+      - 0.0.0.0
+      - --authrpc.port
+      - ${EE_PORT:-8551}
+      - --authrpc.vhosts=*
+      - --maxpeers
+      - ${EL_MAX_PEER_COUNT:-50}
+
+    ports:
+      - ${EE_PORT:-8551}:${EE_PORT:-8551}             # Auth-RPC (used by halo)
+      - ${EL_RPC_PORT:-8545}:${EL_RPC_PORT:-8545}        # JSON-RCP
+      - ${EL_WS_PORT:-8546}:${EL_WS_PORT:-8546}        # Websocket-RPC
+      - ${EL_P2P_PORT:-30303}:${EL_P2P_PORT:-30303}      # Execution P2P
+      - ${EL_P2P_PORT:-30303}:${EL_P2P_PORT:-30303}/udp  # Execution P2P Discovery
+
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${EL_HOST:-el}.service=${EL_HOST:-el}
+      - traefik.http.routers.${EL_HOST:-el}.entrypoints=websecure
+      - traefik.http.routers.${EL_HOST:-el}.rule=Host(`${EL_HOST:-el}.${DOMAIN}`)
+      - traefik.http.routers.${EL_HOST:-el}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${EL_HOST:-el}lb.service=${EL_HOST:-el}
+      - traefik.http.routers.${EL_HOST:-el}lb.entrypoints=websecure
+      - traefik.http.routers.${EL_HOST:-el}lb.rule=Host(`${EL_LB}.${DOMAIN}`)
+      - traefik.http.routers.${EL_HOST:-el}lb.tls.certresolver=letsencrypt
+      - traefik.http.services.${EL_HOST:-el}.loadbalancer.server.port=${EL_RPC_PORT:-8545}
+      - traefik.http.routers.${EL_WS_HOST:-elws}.service=${EL_WS_HOST:-elws}
+      - traefik.http.routers.${EL_WS_HOST:-elws}.entrypoints=websecure
+      - traefik.http.routers.${EL_WS_HOST:-elws}.rule=Host(`${EL_WS_HOST:-elws}.${DOMAIN}`)
+      - traefik.http.routers.${EL_WS_HOST:-elws}.tls.certresolver=letsencrypt
+      - traefik.http.routers.${EL_WS_HOST:-elws}lb.service=${EL_WS_HOST:-elws}
+      - traefik.http.routers.${EL_WS_HOST:-elws}lb.entrypoints=websecure
+      - traefik.http.routers.${EL_WS_HOST:-elws}lb.rule=Host(`${EL_WS_LB:-elws-lb}.${DOMAIN}`)
+      - traefik.http.routers.${EL_WS_HOST:-elws}lb.tls.certresolver=letsencrypt
+      - traefik.http.services.${EL_WS_HOST:-elws}.loadbalancer.server.port=${EL_WS_PORT:-8546}
+      - metrics.scrape=true
+      - metrics.path=/metrics
+      - metrics.port=6060
+      - metrics.instance=geth
+      - metrics.network=${NETWORK}
+    <<: *logging
+
+volumes:
+  halo-data:
+  geth-data:
+  jwtsecret:

@@ -1,0 +1,68 @@
+ARG DOCKER_TAG=stable
+ARG DOCKER_REPO=omniops/halovisor
+
+FROM ${DOCKER_REPO}:${DOCKER_TAG} AS build
+
+# Get dasel
+FROM ghcr.io/tomwright/dasel:2-alpine AS dasel
+
+FROM alpine:latest
+
+# Unused, this is here to avoid build time complaints
+ARG BUILD_TARGET
+ARG SRC_REPO
+
+ARG USER=halo
+ARG UID=10001
+# GID 10002 is deliberate so it can exchange secret with CL
+ARG GID=10002
+
+RUN apk update && apk add --no-cache ca-certificates tzdata bash su-exec git jq curl wget dasel
+
+# Cosmovisor environment variables
+ENV DAEMON_HOME=/halo
+ENV DAEMON_NAME=halo
+ENV DAEMON_ALLOW_DOWNLOAD_BINARIES=false
+ENV DAEMON_RESTART_AFTER_UPGRADE=true
+ENV UNSAFE_SKIP_BACKUP=true
+ENV COSMOVISOR_TIMEFORMAT_LOGS=rfc3339nano
+ENV COSMOVISOR_CUSTOM_ROOT=/halovisor
+ENV COSMOVISOR_CUSTOM_CURRENT_LINK=/halo/halovisor-current
+
+# Define mounted volume
+VOLUME /halo
+
+RUN addgroup \
+    --gid "${GID}" \
+    "${USER}"
+
+# See https://stackoverflow.com/a/55757473/12429735RUN
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --shell "/sbin/nologin" \
+    --uid "${UID}" \
+    --ingroup "${USER}" \
+    "${USER}"
+
+RUN mkdir -p /geth/jwtsecret && chown -R ${USER}:${USER} /geth && chmod -R 700 /geth && chmod 777 /geth/jwtsecret
+RUN mkdir -p /halo/data && chown -R ${USER}:${USER} /halo && chmod -R 700 /halo && chmod 777 /halo/data
+RUN mkdir /halo/config && chown -R ${USER}:${USER} /halo/config && chmod 777 /halo/config
+
+# Cannot assume buildkit, hence no chmod
+COPY --chown=${USER}:${USER} ./docker-entrypoint.sh /usr/local/bin/
+
+# Copy executables
+COPY --from=build /usr/local/bin/cosmovisor /usr/local/bin/cosmovisor
+COPY --from=build /halovisor /halovisor
+COPY --from=dasel /usr/local/bin/dasel /usr/local/bin/
+
+# Belt and suspenders
+RUN chmod -R 755 /usr/local/bin/*
+
+USER ${USER}
+
+ENTRYPOINT ["cosmovisor"]
+
+# First 'run' is cosmovisor command, second 'run' is halo command.
+CMD [ "run", "run" ]
