@@ -53,9 +53,9 @@ RUN mkdir /halo/config && chown -R ${USER}:${USER} /halo/config && chmod 777 /ha
 COPY --chown=${USER}:${USER} ./docker-entrypoint.sh /usr/local/bin/
 
 # Copy executables
-COPY --from=build /usr/local/bin/cosmovisor /usr/local/bin/cosmovisor
-COPY --from=build /halovisor /halovisor
-COPY --from=dasel /usr/local/bin/dasel /usr/local/bin/
+COPY --from=build --chown=${USER}:${USER} /usr/local/bin/cosmovisor /usr/local/bin/
+COPY --from=build --chown=${USER}:${USER} /halovisor /halovisor
+COPY --from=dasel --chown=${USER}:${USER} /usr/local/bin/dasel /usr/local/bin/
 
 # Belt and suspenders
 RUN chmod -R 755 /usr/local/bin/*
