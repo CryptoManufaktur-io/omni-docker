@@ -37,6 +37,11 @@ wget "https://raw.githubusercontent.com/omni-network/omni/refs/heads/main/lib/ne
 wget "https://raw.githubusercontent.com/omni-NETWORK/omni/refs/heads/main/lib/netconf/${NETWORK}/execution-seeds.txt" -O /home/geth/bootnode.txt
 wget https://raw.githubusercontent.com/omni-network/omni/refs/heads/main/e2e/app/geth/testdata/default_config.toml -O /home/geth/config.toml
 
+dasel delete -f /home/geth/config.toml Node.DataDir
+dasel delete -f /home/geth/config.toml Node.IPCPath
+dasel delete -f /home/geth/config.toml Node.HTTPHost
+dasel delete -f /home/geth/config.toml Node.HTTPVirtualHosts
+
 __config="--config /home/geth/config.toml"
 
 networkid="$(jq -r '.config.chainId' "/home/geth/genesis.json")"

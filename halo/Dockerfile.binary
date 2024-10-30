@@ -49,13 +49,13 @@ RUN mkdir -p /geth/jwtsecret && chown -R ${USER}:${USER} /geth && chmod -R 700 /
 RUN mkdir -p /halo/data && chown -R ${USER}:${USER} /halo && chmod -R 700 /halo && chmod 777 /halo/data
 RUN mkdir /halo/config && chown -R ${USER}:${USER} /halo/config && chmod 777 /halo/config
 
-# Cannot assume buildkit, hence no chmod
-COPY --chown=${USER}:${USER} ./docker-entrypoint.sh /usr/local/bin/
-
 # Copy executables
 COPY --from=build --chown=${USER}:${USER} /usr/local/bin/cosmovisor /usr/local/bin/
 COPY --from=build --chown=${USER}:${USER} /halovisor /halovisor
 COPY --from=dasel --chown=${USER}:${USER} /usr/local/bin/dasel /usr/local/bin/
+
+# Cannot assume buildkit, hence no chmod
+COPY --chown=${USER}:${USER} ./docker-entrypoint.sh /usr/local/bin/
 
 # Belt and suspenders
 RUN chmod -R 755 /usr/local/bin/*

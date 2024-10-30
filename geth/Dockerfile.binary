@@ -1,6 +1,9 @@
 ARG DOCKER_TAG=stable
 ARG DOCKER_REPO=ethereum/client-go
 
+# Get dasel
+FROM ghcr.io/tomwright/dasel:2-alpine AS dasel
+
 FROM ${DOCKER_REPO}:${DOCKER_TAG}
 
 # Unused, this is here to avoid build time complaints
@@ -31,6 +34,10 @@ RUN mkdir -p /var/lib/geth/ee-secret && chown -R ${USER}:${USER} /var/lib/geth &
 
 # Cannot assume buildkit, hence no chmod
 COPY --chown=${USER}:${USER} ./docker-entrypoint.sh /usr/local/bin/
+
+# Copy executables
+COPY --from=dasel --chown=${USER}:${USER} /usr/local/bin/dasel /usr/local/bin/
+
 # Belt and suspenders
 RUN chmod -R 755 /usr/local/bin/*
 
