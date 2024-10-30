@@ -27,6 +27,7 @@ services:
       - RAPID_SYNC_URL=${RAPID_SYNC_URL}
       - CL_P2P_PORT=${CL_P2P_PORT:-26656}
       - CL_RPC_PORT=${CL_RPC_PORT:-26657}
+      - HOST_IP=${HOST_IP}
     ports:
       - ${CL_P2P_PORT:-26656}:${CL_P2P_PORT:-26656}/tcp # CometBFT Consensus P2P
       - ${CL_RPC_PORT:-26657}:${CL_RPC_PORT:-26657}/tcp # CometBFT Consensus RPC
@@ -84,6 +85,8 @@ services:
     entrypoint:
       - docker-entrypoint.sh
       - geth
+      - --config
+      - /home/geth/config.toml
       - --http
       - --http.addr
       - 0.0.0.0

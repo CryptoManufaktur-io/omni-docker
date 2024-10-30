@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-__public_ip=$(curl -s ifconfig.me/ip)
-
 if [ "$(id -u)" = '0' ]; then
   chown -R halo:halo /halo
   exec su-exec halo docker-entrypoint.sh "$@"
@@ -37,7 +35,7 @@ dasel put -f /halo/config/config.toml -v "${__persistent_peers%,}" p2p.persisten
 dasel put -f /halo/config/config.toml -v ${MONIKER} moniker
 
 dasel put -f /halo/config/config.toml -v "tcp://0.0.0.0:${CL_P2P_PORT}" p2p.laddr
-dasel put -f /halo/config/config.toml -v "${__public_ip}:${CL_P2P_PORT}" p2p.external_address
+dasel put -f /halo/config/config.toml -v "${HOST_IP}:${CL_P2P_PORT}" p2p.external_address
 
 dasel put -f /halo/config/config.toml -v "tcp://0.0.0.0:${CL_RPC_PORT}" rpc.laddr
 
