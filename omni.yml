@@ -150,6 +150,26 @@ services:
       - metrics.network=${NETWORK}
     <<: *logging
 
+  create-validator-keys:
+    profiles: ["tools"]
+    build:
+      context: ./omni-cli
+      dockerfile: Dockerfile.binary
+    image: omni:local
+    pull_policy: never
+    user: omni
+    volumes:
+      - ./config:/data/config
+    entrypoint: ["/bin/bash","-c"]
+    environment:
+      - NETWORK=${NETWORK:-}
+    command:
+      - |
+        omni operator create-consensus-key --home /data/${NETWORK}/halo
+        cp /data/${NETWORK}/halo/config/priv_validator_key.json /data/config/
+        cp /data/${NETWORK}/halo/data/priv_validator_state.json /data/config/
+        cp /data/${NETWORK}/halo/data/voter_state.json /data/config/
+
 volumes:
   halo-data:
   geth-data:

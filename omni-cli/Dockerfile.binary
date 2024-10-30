@@ -1,0 +1,31 @@
+FROM omniops/omni:latest AS build
+
+FROM alpine:latest
+
+ARG USER=omni
+ARG UID=10001
+
+RUN apk update && apk add --no-cache ca-certificates tzdata bash su-exec git jq curl wget dasel
+
+# Define mounted volume
+VOLUME /data
+
+# See https://stackoverflow.com/a/55757473/12429735RUN
+RUN adduser \
+    --disabled-password \
+    --gecos "" \
+    --shell "/sbin/nologin" \
+    --uid "${UID}" \
+    "${USER}"
+
+RUN mkdir -p /data && chown -R ${USER}:${USER} /data && chmod 777 /data
+
+# Copy executables
+COPY --from=build --chown=${USER}:${USER} /app /usr/local/bin/omni
+
+# Belt and suspenders
+RUN chmod -R 755 /usr/local/bin/*
+
+USER ${USER}
+
+ENTRYPOINT ["omni"]
