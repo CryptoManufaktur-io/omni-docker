@@ -66,6 +66,17 @@ if [ -n "${RAPID_SYNC_URL}" ]; then
   dasel put -f /halo/config/config.toml -v $SNAPSHOT_HASH statesync.trust_hash
 fi
 
+# halovisor will create a subprocess to handle upgrades
+# so we need a special way to handle SIGTERM
+
+# Start the process in a new session, so it gets its own process group.
 # Word splitting is desired for the command line parameters
 # shellcheck disable=SC2086
-exec "$@" ${CL_EXTRAS}
+setsid "$@" ${CL_EXTRAS} &
+pid=$!
+
+# Trap SIGTERM in the script and forward it to the process group
+trap 'kill -TERM -$pid' TERM
+
+# Wait for the background process to complete
+wait $pid
