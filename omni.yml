@@ -157,9 +157,9 @@ services:
       dockerfile: Dockerfile.binary
     image: omni:local
     pull_policy: never
-    user: omni
+    user: root
     volumes:
-      - ./config:/data/config
+      - ./config:/data/config:rw
     entrypoint: ["/bin/bash","-c"]
     environment:
       - NETWORK=${NETWORK:-}
@@ -169,6 +169,7 @@ services:
         cp /data/${NETWORK}/halo/config/priv_validator_key.json /data/config/
         cp /data/${NETWORK}/halo/data/priv_validator_state.json /data/config/
         cp /data/${NETWORK}/halo/data/voter_state.json /data/config/
+        chown -R omni:omni /data/config/*
 
 volumes:
   halo-data:
