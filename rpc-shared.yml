@@ -1,0 +1,5 @@
+# To be used with omni.yml
+services:
+  halo:
+    ports:
+      - ${CL_RPC_PORT:-CL_RPC_PORT}:${CL_RPC_PORT:-CL_RPC_PORT}/tcp

@@ -2,3 +2,5 @@
 ext-network.yml
 *.swp
 config/
+keys/
+.DS_Store

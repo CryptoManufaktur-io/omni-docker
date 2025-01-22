@@ -28,15 +28,17 @@ services:
       - CL_P2P_PORT=${CL_P2P_PORT:-26656}
       - CL_RPC_PORT=${CL_RPC_PORT:-26657}
       - HOST_IP=${HOST_IP}
+      - ARBITRUM_RPC_URL=${ARBITRUM_RPC_URL}
+      - BASE_RPC_URL=${BASE_RPC_URL}
+      - ETH_RPC_URL=${ETH_RPC_URL}
+      - OP_RPC_URL=${OP_RPC_URL}
+      - EL_NODE=${EL_NODE}
     ports:
-      - ${CL_P2P_PORT:-26656}:${CL_P2P_PORT:-26656}/tcp # CometBFT Consensus P2P
-      - ${CL_RPC_PORT:-26657}:${CL_RPC_PORT:-26657}/tcp # CometBFT Consensus RPC
+      - ${CL_P2P_PORT:-26656}:${CL_P2P_PORT:-26656}/tcp
+      - ${CL_RPC_PORT:-26657}:${CL_RPC_PORT:-26657}/tcp
     volumes:
       - halo-data:/halo
       - jwtsecret:/geth/jwtsecret
-      - ./config/priv_validator_key.json:/halo/config/priv_validator_key.json
-      - ./config/priv_validator_state.json:/halo/data/priv_validator_state.json
-      - ./config/voter_state.json:/halo/data/voter_state.json
     entrypoint:
       - docker-entrypoint.sh
       - cosmovisor
@@ -159,17 +161,106 @@ services:
     pull_policy: never
     user: root
     volumes:
-      - ./config:/data/config:rw
+      - ./keys/consensus:/data/config:rw
     entrypoint: ["/bin/bash","-c"]
     environment:
       - NETWORK=${NETWORK:-}
     command:
       - |
-        omni operator create-consensus-key --home /data/${NETWORK}/halo
+        omni operator create-consensus-key --home /data/${NETWORK}/halo > /dev/null 2>&1
         cp /data/${NETWORK}/halo/config/priv_validator_key.json /data/config/
         cp /data/${NETWORK}/halo/data/priv_validator_state.json /data/config/
         cp /data/${NETWORK}/halo/data/voter_state.json /data/config/
         chown -R omni:omni /data/config/*
+        chown -R omni:omni /data/config/*
+        echo "Validator keys created!"
+
+  import-validator-keys:
+    profiles: ["tools"]
+    build:
+      context: ./omni-cli
+      dockerfile: Dockerfile.binary
+    image: omni:local
+    pull_policy: never
+    user: root
+    volumes:
+      - halo-data:/halo
+      - ./keys/consensus:/data/config:rw
+    entrypoint: ["/bin/bash","-c"]
+    command:
+      - |
+        echo "Importing validator key and state files from ./keys/consensus into container volume"
+        cp /data/config/priv_validator_key.json /halo/config/
+        cp /data/config/priv_validator_state.json /halo/data/
+        cp /data/config/voter_state.json /halo/data/
+        chown -R omni:omni /halo/config/priv_validator_key.json
+        chown -R omni:omni /halo/data/priv_validator_state.json
+        chown -R omni:omni /halo/data/voter_state.json
+        echo "Validator keys imported!"
+
+  export-validator-keys:
+    profiles: ["tools"]
+    build:
+      context: ./omni-cli
+      dockerfile: Dockerfile.binary
+    image: omni:local
+    pull_policy: never
+    user: root
+    volumes:
+      - halo-data:/halo
+      - ./keys/consensus:/data/config:rw
+    entrypoint: ["/bin/bash","-c"]
+    command:
+      - |
+        echo "Exporting validator key and state file from container to ./keys/consensus"
+        cp /halo/config/priv_validator_key.json /data/config/
+        cp /halo/data/priv_validator_state.json /data/config/
+        cp /halo/data/voter_state.json /data/config/
+        echo "Validator keys exported!"
+
+  create-operator-wallet:
+    profiles: ["tools"]
+    build:
+      context: ./omni-cli
+      dockerfile: Dockerfile.binary
+    image: omni:local
+    pull_policy: never
+    user: root
+    volumes:
+      - ./keys/operator:/operator:rw
+    entrypoint: ["/bin/bash","-c"]
+    command:
+      - |
+        cd operator && omni operator create-operator-key
+        chown -R omni:omni /operator/*
+
+  halo-cli:
+    profiles: ["tools"]
+    build:
+      context: ./halo
+      dockerfile: ${HALO_DOCKERFILE}
+      args:
+        - DOCKER_TAG=${HALO_DOCKER_TAG:-stable}
+        - DOCKER_REPO=${HALO_DOCKER_REPO:-ethereum/client-go}
+    image: halo:local
+    pull_policy: never
+    user: halo
+    volumes:
+      - halo-data:/halo
+    entrypoint: /halo/halovisor-current/bin/halo
+
+  omni-cli:
+    profiles: ["tools"]
+    build:
+      context: ./omni-cli
+      dockerfile: Dockerfile.binary
+    image: omni:local
+    pull_policy: never
+    user: root
+    working_dir: /operator
+    volumes:
+      - ./keys/operator:/operator:rw
+      - halo-data:/halo
 
 volumes:
   halo-data:

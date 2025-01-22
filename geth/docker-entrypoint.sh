@@ -41,6 +41,7 @@ dasel delete -f /home/geth/config.toml Node.DataDir
 dasel delete -f /home/geth/config.toml Node.IPCPath
 dasel delete -f /home/geth/config.toml Node.HTTPHost
 dasel delete -f /home/geth/config.toml Node.HTTPVirtualHosts
+dasel put -t int -f /home/geth/config.toml -v 500000000 Eth.Miner.Recommit
 
 __config="--config /home/geth/config.toml"
 

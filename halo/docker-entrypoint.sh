@@ -13,8 +13,21 @@ if [[ ! -f /halo/config/halo.toml ]]; then
 fi
 
 dasel put -f /halo/config/halo.toml -v ${NETWORK} network
-dasel put -f /halo/config/halo.toml -v http://omni_evm:8551 engine-endpoint
+dasel put -f /halo/config/halo.toml -v ${EL_NODE} engine-endpoint
 dasel put -f /halo/config/halo.toml -v /geth/jwtsecret/jwtsecret engine-jwt-file
+dasel put -f /halo/config/halo.toml -v "600ms" evm-build-delay
+
+if [ "$NETWORK" == "mainnet" ]; then
+  dasel put -f /halo/config/halo.toml -v "${ARBITRUM_RPC_URL}" xchain.evm-rpc-endpoints.arbitrum_one
+  dasel put -f /halo/config/halo.toml -v "${BASE_RPC_URL}" xchain.evm-rpc-endpoints.base
+  dasel put -f /halo/config/halo.toml -v "${ETH_RPC_URL}" xchain.evm-rpc-endpoints.ethereum
+  dasel put -f /halo/config/halo.toml -v "${OP_RPC_URL}" xchain.evm-rpc-endpoints.optimism
+else
+  dasel put -f /halo/config/halo.toml -v "${ARBITRUM_RPC_URL}" xchain.evm-rpc-endpoints.arb_sepolia
+  dasel put -f /halo/config/halo.toml -v "${BASE_RPC_URL}" xchain.evm-rpc-endpoints.base_sepolia
+  dasel put -f /halo/config/halo.toml -v "${ETH_RPC_URL}" xchain.evm-rpc-endpoints.holesky
+  dasel put -f /halo/config/halo.toml -v "${OP_RPC_URL}" xchain.evm-rpc-endpoints.op_sepolia
+fi
 
 # CometBFT config.
 echo "Downloading CometBFT config.toml file"
@@ -38,6 +51,8 @@ dasel put -f /halo/config/config.toml -v "tcp://0.0.0.0:${CL_P2P_PORT}" p2p.ladd
 dasel put -f /halo/config/config.toml -v "${HOST_IP}:${CL_P2P_PORT}" p2p.external_address
 
 dasel put -f /halo/config/config.toml -v "tcp://0.0.0.0:${CL_RPC_PORT}" rpc.laddr
+
+dasel put -f /halo/config/config.toml -v "1s" consensus.timeout_commit
 
 # Genesis file.
 if [[ ! -f /halo/config/genesis.json ]]; then
